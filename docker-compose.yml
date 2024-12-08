@@ -8,7 +8,6 @@ services:
       target: frontend-builder
     volumes:
       - ./frontend:/app/frontend
-    command: npm run dev
     environment:
       - NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
 
@@ -32,6 +31,8 @@ services:
       - postgres
     networks:
       - application
+    volumes:
+      - ./files:/app/files
 
   postgres:
     image: postgres:16
