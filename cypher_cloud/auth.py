@@ -189,7 +189,12 @@ async def login_user(
     token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
     # Сохраняем в куки
-    response.set_cookie(key="access_token", value=token, httponly=True)
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        expires=ACCESS_TOKEN_EXPIRE_SECONDS,
+    )
     return {"status": "ok"}
 
 
@@ -317,7 +322,7 @@ async def disable_2fa(
 async def get_me(
     user: User = Depends(get_current_user),
 ):
-    return UserResponse.from_orm(user)
+    return UserResponse.model_validate(user)
 
 
 @router.post("/logout")
