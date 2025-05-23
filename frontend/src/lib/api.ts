@@ -21,6 +21,7 @@ const PUBLIC_ROUTES = [
   '/privacy',
   '/forgot-password',
   '/reset-password',
+  '/confirm-email',
 ];
 
 // Функция для проверки, является ли роут публичным
