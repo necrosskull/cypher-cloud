@@ -14,5 +14,8 @@ RUN poetry config virtualenvs.create false && poetry install --no-dev
 # Указываем порт, на котором будет работать приложение
 EXPOSE 8000
 
-# Запускаем приложение
-CMD ["poetry", "run","uvicorn", "cypher_cloud.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+RUN poetry config virtualenvs.create false \
+    && poetry install --no-interaction --no-ansi
+
+COPY . .
