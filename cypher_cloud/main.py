@@ -28,11 +28,9 @@ app.add_middleware(
 # Подключаем роутеры
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
 app.include_router(files_router, prefix="/files", tags=["files"])
-app.mount("/", StaticFiles(directory="./build", html=True), name="frontend")
 
 
 @app.on_event("startup")
 async def startup_event():
-    # Создаем таблицы при старте (в реальном проекте - миграции)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
