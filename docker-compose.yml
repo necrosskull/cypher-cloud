@@ -5,7 +5,6 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile
-      target: frontend-builder
     volumes:
       - ./frontend:/app/frontend
     environment:
