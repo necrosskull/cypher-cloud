@@ -4,17 +4,19 @@ services:
   frontend:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: frontend/Dockerfile
       target: frontend-builder
     volumes:
       - ./frontend:/app/frontend
     environment:
       - NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
+    networks:
+      - application
 
   backend:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: docker/api/Dockerfile
     environment:
       - DB_HOST=${db_host}
       - DB_PORT=${db_port}
