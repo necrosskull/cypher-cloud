@@ -33,7 +33,9 @@ class Settings(BaseSettings):
     EMAIL_CONFIRM_EXPIRE_SECONDS: int = 3600  # 1 час
     PASSWORD_RESET_EXPIRE_SECONDS: int = 3600  # 1 час
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", extra="ignore"
+    )
 
 
 @lru_cache
