@@ -1,7 +1,9 @@
 const nextConfig = {
-  output: 'export',
-  distDir: "build", // ✅ Valid path
-  images: { unoptimized: true },
+  images: {
+    unoptimized: true,
+  },
+  reactStrictMode: true,
+  swcMinify: true,
   trailingSlash: true,
 };
 
