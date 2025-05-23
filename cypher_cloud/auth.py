@@ -118,7 +118,7 @@ async def register_user(
         SECRET_KEY,
         algorithm=ALGORITHM,
     )
-    confirm_url = f"{settings.NEXT_PUBLIC_BASE_URL.rstrip('/api/v1')}/auth/confirm-email?token={token}"
+    confirm_url = f"{settings.NEXT_PUBLIC_BASE_URL.rstrip('/api/v1')}/confirm-email?token={token}"
     message = MessageSchema(
         subject="Подтвердите ваш email",
         recipients=[req.email],
