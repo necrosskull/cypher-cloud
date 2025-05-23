@@ -3,7 +3,7 @@ FROM python:3.12-slim-bookworm
 WORKDIR /app
 
 # Устанавливаем Poetry
-RUN pip install poetry
+RUN pip install poetry==1.8.0
 
 # Копируем файлы Poetry для управления зависимостями Python
 COPY pyproject.toml poetry.lock ./
