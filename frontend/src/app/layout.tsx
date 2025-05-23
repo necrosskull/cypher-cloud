@@ -6,6 +6,7 @@ import { ThemeProvider } from 'next-themes';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/Navigation';
 import { Toaster } from '@/components/ui/toaster';
+import { Suspense } from 'react';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -30,8 +31,10 @@ export default function RootLayout({
           <AuthProvider>
             <div className="min-h-screen bg-background">
               <Navigation />
-              <main className="container mx-auto py-6">
-                {children}
+              <main>
+                <Suspense fallback={<div>Loading...</div>}>
+                  {children}
+                </Suspense>
               </main>
               <Toaster />
             </div>
