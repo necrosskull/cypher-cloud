@@ -14,6 +14,7 @@ app = FastAPI(  # Создаем экземпляр FastAPI
     description="Simple cloud storage with encryption",
     version="0.1",
     root_path="/api/v1",
+    docs_url="/docs",
 )
 
 app.add_middleware(

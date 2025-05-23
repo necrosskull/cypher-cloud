@@ -20,6 +20,7 @@ psycopg2-binary = "^2.9.10"
 pydantic = {extras = ["email"], version = "^2.10.3"}
 asyncpg = "^0.30.0"
 pydantic-settings = "^2.6.1"
+fastapi-mail = "^1.5.0"
 
 
 [build-system]
