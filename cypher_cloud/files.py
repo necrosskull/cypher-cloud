@@ -206,14 +206,20 @@ async def download_file(
         raise HTTPException(404, "File not found")
 
     f = Fernet(db_file.encrypted_key)
-    async with aiofiles.open(db_file.storage_path, "rb") as f_in:
-        encrypted_content = await f_in.read()
-    decrypted_content = f.decrypt(encrypted_content)
+
+    async def file_iterator(chunk_size=1024 * 1024):  # 1MB chunks
+        async with aiofiles.open(db_file.storage_path, "rb") as f_in:
+            while True:
+                encrypted_chunk = await f_in.read(chunk_size)
+                if not encrypted_chunk:
+                    break
+                decrypted_chunk = f.decrypt(encrypted_chunk)
+                yield decrypted_chunk
 
     safe_filename = urllib.parse.quote(db_file.filename)
 
     return StreamingResponse(
-        iter([decrypted_content]),
+        file_iterator(),
         media_type="application/octet-stream",
         headers={
             "Content-Disposition": f"attachment; filename*=UTF-8''{safe_filename}"
