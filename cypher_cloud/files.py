@@ -207,22 +207,25 @@ async def download_file(
 
     f = Fernet(db_file.encrypted_key)
 
-    async def file_iterator(chunk_size=1024 * 1024):  # 1MB chunks
-        async with aiofiles.open(db_file.storage_path, "rb") as f_in:
-            while True:
-                encrypted_chunk = await f_in.read(chunk_size)
-                if not encrypted_chunk:
-                    break
-                decrypted_chunk = f.decrypt(encrypted_chunk)
-                yield decrypted_chunk
+    # Читаем и декриптируем весь файл
+    async with aiofiles.open(db_file.storage_path, "rb") as f_in:
+        encrypted_content = await f_in.read()
+
+    decrypted_content = f.decrypt(encrypted_content)
+
+    # Создаем генератор для отправки данных чанками
+    async def content_iterator(data: bytes, chunk_size: int = 1024 * 1024):
+        for i in range(0, len(data), chunk_size):
+            yield data[i : i + chunk_size]
 
     safe_filename = urllib.parse.quote(db_file.filename)
 
     return StreamingResponse(
-        file_iterator(),
+        content_iterator(decrypted_content),
         media_type="application/octet-stream",
         headers={
-            "Content-Disposition": f"attachment; filename*=UTF-8''{safe_filename}"
+            "Content-Disposition": f"attachment; filename*=UTF-8''{safe_filename}",
+            "Content-Length": str(len(decrypted_content)),
         },
     )
 
