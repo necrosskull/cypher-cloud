@@ -349,7 +349,7 @@ async def verify_passkey_registration(
         credential_id=b64encode(verification.credential_id),
         public_key=b64encode(verification.credential_public_key),
         sign_count=verification.sign_count,
-        user_handle=b64encode(verification.user_id),
+        user_handle=b64encode(str(user.id).encode()),
         nickname=req.nickname,
         transports=",".join(
             req.credential.get("transports", []) if isinstance(req.credential, dict) else []
@@ -357,7 +357,8 @@ async def verify_passkey_registration(
     )
     db.add(new_passkey)
     await db.commit()
-    registration_challenges.pop(user.id, None)
+    if user.id in registration_challenges:
+        registration_challenges.pop(user.id)
     return {"status": "ok"}
 
 
