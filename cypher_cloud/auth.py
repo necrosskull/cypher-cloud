@@ -43,6 +43,8 @@ from webauthn import (
 )
 from webauthn.helpers.structs import (
     AuthenticationCredential,
+    AuthenticatorAssertionResponse,
+    AuthenticatorAttestationResponse,
     AuthenticatorTransport,
     RegistrationCredential,
     UserVerificationRequirement,
@@ -100,6 +102,55 @@ def set_session_cookie(response: Response, user: User):
         value=token,
         httponly=True,
         expires=ACCESS_TOKEN_EXPIRE_SECONDS,
+    )
+
+
+def build_registration_credential(payload: dict) -> RegistrationCredential:
+    transports_raw = payload.get("transports") or []
+    transports = []
+    for t in transports_raw:
+        try:
+            transports.append(AuthenticatorTransport(t))
+        except Exception:
+            continue
+
+    return RegistrationCredential(
+        id=b64decode(payload.get("id") or payload.get("rawId")),
+        raw_id=b64decode(payload.get("rawId") or payload.get("id")),
+        response=AuthenticatorAttestationResponse(
+            attestation_object=b64decode(payload["response"]["attestationObject"]),
+            client_data_json=b64decode(payload["response"]["clientDataJSON"]),
+        ),
+        authenticator_attachment=payload.get("authenticatorAttachment"),
+        client_extension_results=payload.get("clientExtensionResults") or {},
+        transports=transports or None,
+        type=payload.get("type") or "public-key",
+    )
+
+
+def build_authentication_credential(payload: dict) -> AuthenticationCredential:
+    transports_raw = payload.get("transports") or []
+    transports = []
+    for t in transports_raw:
+        try:
+            transports.append(AuthenticatorTransport(t))
+        except Exception:
+            continue
+
+    response = payload["response"]
+    return AuthenticationCredential(
+        id=b64decode(payload.get("id") or payload.get("rawId")),
+        raw_id=b64decode(payload.get("rawId") or payload.get("id")),
+        response=AuthenticatorAssertionResponse(
+            authenticator_data=b64decode(response["authenticatorData"]),
+            client_data_json=b64decode(response["clientDataJSON"]),
+            signature=b64decode(response["signature"]),
+            user_handle=b64decode(response["userHandle"]) if response.get("userHandle") else None,
+        ),
+        authenticator_attachment=payload.get("authenticatorAttachment"),
+        client_extension_results=payload.get("clientExtensionResults") or {},
+        transports=transports or None,
+        type=payload.get("type") or "public-key",
     )
 
 
@@ -289,8 +340,9 @@ async def verify_passkey_registration(
         raise HTTPException(status_code=400, detail="Registration challenge not found")
 
     try:
+        credential_obj = build_registration_credential(req.credential)
         verification = verify_registration_response(
-            credential=RegistrationCredential(**req.credential),
+            credential=credential_obj,
             expected_challenge=expected_challenge,
             expected_origin=ORIGIN,
             expected_rp_id=RP_ID,
@@ -366,8 +418,9 @@ async def verify_passkey_login(
         raise HTTPException(status_code=400, detail="Unknown passkey")
 
     try:
+        credential_obj = build_authentication_credential(req.credential)
         verification = verify_authentication_response(
-            credential=AuthenticationCredential(**req.credential),
+            credential=credential_obj,
             expected_challenge=expected_challenge,
             expected_rp_id=RP_ID,
             expected_origin=ORIGIN,
