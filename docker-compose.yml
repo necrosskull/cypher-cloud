@@ -9,6 +9,8 @@ services:
       - ./frontend:/app/frontend
     environment:
       - NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
+    expose:
+      - "3000"
     networks:
       - application
 
@@ -28,13 +30,31 @@ services:
       - ISSUER_NAME=${ISSUER_NAME}
       - ACCESS_TOKEN_EXPIRE_SECONDS=${ACCESS_TOKEN_EXPIRE_SECONDS}
       - NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
+      - VAULT_ADDR=${VAULT_ADDR}
+      - VAULT_TOKEN=${VAULT_TOKEN}
+      - VAULT_KV_MOUNT=${VAULT_KV_MOUNT}
     depends_on:
       - postgres
+      - vault-proxy
     networks:
       - application
     volumes:
       - ./files:/app/files
-    command: bash -c "poetry run uvicorn cypher_cloud.main:app --host 0.0.0.0"
+    expose:
+      - "8000"
+    command: ["uv", "run", "uvicorn", "cypher_cloud.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+  nginx:
+    build:
+      context: .
+      dockerfile: docker/nginx/Dockerfile
+    depends_on:
+      - frontend
+      - backend
+    ports:
+      - ${APP_PORT:-8080}:80
+    networks:
+      - application
 
   postgres:
     image: postgres:16
@@ -46,6 +66,40 @@ services:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - ${db_ext_port}:5432
+    networks:
+      - application
+
+  vault:
+    image: hashicorp/vault:1.16
+    cap_add:
+      - IPC_LOCK
+    environment:
+      - VAULT_DEV_ROOT_TOKEN_ID=${VAULT_TOKEN}
+      - VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200
+      - VAULT_TOKEN=${VAULT_TOKEN}
+      - VAULT_ADMIN_USERNAME=${VAULT_ADMIN_USERNAME}
+      - VAULT_ADMIN_PASSWORD=${VAULT_ADMIN_PASSWORD}
+      - VAULT_ADMIN_POLICY=${VAULT_ADMIN_POLICY}
+    ports:
+      - ${VAULT_HTTP_PORT:-8200}:8200
+    volumes:
+      - ./docker/vault:/vault/config
+      - ./docker/vault-init:/vault/init
+    entrypoint: ["/bin/sh", "/vault/init/start-dev.sh"]
+    networks:
+      - application
+
+  vault-proxy:
+    image: hashicorp/vault:1.16
+    depends_on:
+      - vault
+    command: vault agent -config=/vault/config/agent.hcl
+    environment:
+      - VAULT_ADDR=http://vault:8200
+    ports:
+      - ${VAULT_PROXY_PORT:-8201}:8100
+    volumes:
+      - ./docker/vault:/vault/config
     networks:
       - application
 

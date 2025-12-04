@@ -17,6 +17,11 @@ from cypher_cloud.database import get_db
 from cypher_cloud.models import File as FileModel
 from cypher_cloud.models import User
 from cypher_cloud.schemas import FileItem, FileUploadResult
+from cypher_cloud.vault_client import (
+    delete_file_key,
+    fetch_file_key,
+    store_file_key,
+)
 
 router = APIRouter()
 
@@ -124,15 +129,27 @@ async def upload_multiple_files(
 
                 os.chmod(storage_path, 0o644)
 
-                # Создание записи в БД
                 new_file = FileModel(
                     owner_id=user.id,
                     filename=file.filename,
-                    encrypted_key=key,
+                    vault_key_path="",
                     storage_path=str(storage_path),
                 )
-
                 db.add(new_file)
+                await db.flush()
+
+                vault_path = f"files/{user.id}/{new_file.id}"
+                try:
+                    await store_file_key(vault_path, key.decode())
+                except Exception as vault_exc:  # noqa: BLE001
+                    if storage_path.exists():
+                        storage_path.unlink()
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail="Ошибка при сохранении ключа шифрования",
+                    ) from vault_exc
+
+                new_file.vault_key_path = vault_path
                 successful_files.append(new_file)
 
                 results.append(
@@ -174,6 +191,9 @@ async def upload_multiple_files(
             "results": results,
         }
 
+    except HTTPException:
+        await db.rollback()
+        raise
     except Exception as e:
         await db.rollback()
         print(f"Критическая ошибка при загрузке файлов: {e}")
@@ -205,7 +225,8 @@ async def download_file(
     if not db_file:
         raise HTTPException(404, "File not found")
 
-    f = Fernet(db_file.encrypted_key)
+    key = await fetch_file_key(db_file.vault_key_path)
+    f = Fernet(key.encode())
 
     # Читаем и декриптируем весь файл
     async with aiofiles.open(db_file.storage_path, "rb") as f_in:
@@ -243,9 +264,13 @@ async def delete_file(
     if not db_file:
         raise HTTPException(404, "File not found")
 
+    vault_path = db_file.vault_key_path
+
     # Удаляем запись из БД
     await db.delete(db_file)
     await db.commit()
+
+    await delete_file_key(vault_path)
 
     # Удаляем файл с диска
     if os.path.exists(db_file.storage_path):

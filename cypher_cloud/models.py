@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, LargeBinary, String
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from cypher_cloud.database import Base
@@ -23,7 +23,7 @@ class File(Base):
     id = Column(Integer, primary_key=True, index=True)
     owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
     filename = Column(String, index=True, nullable=False)
-    encrypted_key = Column(LargeBinary, nullable=False)
+    vault_key_path = Column(String, nullable=False)
     storage_path = Column(String, nullable=False)
 
     owner = relationship("User", back_populates="files")

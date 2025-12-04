@@ -1,21 +1,15 @@
-FROM python:3.12-slim-bookworm
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm
 
 WORKDIR /app
 
-# Устанавливаем Poetry
-RUN pip install poetry==1.8.0
+# Копируем файлы зависимостей и ставим их через uv (без установ­ки проекта для кэширования слоя)
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev --no-install-project
 
-# Копируем файлы Poetry для управления зависимостями Python
-COPY pyproject.toml poetry.lock ./
-
-# Устанавливаем зависимости приложения
-RUN poetry config virtualenvs.create false && poetry install --no-dev
-
-# Указываем порт, на котором будет работать приложение
-EXPOSE 8000
-
-
-RUN poetry config virtualenvs.create false \
-    && poetry install --no-interaction --no-ansi
-
+# Копируем исходники и ставим проект в editable-режиме
 COPY . .
+RUN uv sync --frozen --no-dev
+
+# Указываем порт приложения и команду запуска
+EXPOSE 8000
+CMD ["uv", "run", "uvicorn", "cypher_cloud.main:app", "--host", "0.0.0.0", "--port", "8000"]

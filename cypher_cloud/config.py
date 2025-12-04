@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     MAIL_STARTTLS: bool = True  # Изменено с MAIL_TLS
     MAIL_SSL_TLS: bool = False  # Изменено с MAIL_SSL
 
+    # Vault
+    vault_addr: str
+    vault_token: str
+    vault_kv_mount: str = "secret"
+
     # Время жизни токенов (в секундах)
     EMAIL_CONFIRM_EXPIRE_SECONDS: int = 3600  # 1 час
     PASSWORD_RESET_EXPIRE_SECONDS: int = 3600  # 1 час
