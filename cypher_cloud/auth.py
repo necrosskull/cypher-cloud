@@ -49,6 +49,7 @@ from webauthn.helpers.structs import (
     RegistrationCredential,
     UserVerificationRequirement,
     PublicKeyCredentialDescriptor,
+    PublicKeyCredentialType,
 )
 
 router = APIRouter()
@@ -76,8 +77,8 @@ RP_ID = urlparse(settings.site_url).hostname or settings.site_url
 RP_NAME = "Cypher Cloud"
 ORIGIN = settings.site_url
 
-registration_challenges: Dict[int, str] = {}
-authentication_challenges: Dict[int, str] = {}
+registration_challenges: Dict[int, bytes] = {}
+authentication_challenges: Dict[int, bytes] = {}
 
 
 def b64encode(data: bytes) -> str:
@@ -106,23 +107,36 @@ def set_session_cookie(response: Response, user: User):
 
 
 def build_registration_credential(payload: dict) -> RegistrationCredential:
-    decoded_raw_id = b64decode(payload.get("rawId") or payload.get("id"))
+    # rawId из payload - это base64url-encoded string
+    raw_id_str = payload.get("rawId") or payload.get("id")
+    if not raw_id_str:
+        raise ValueError("rawId or id not found in payload")
+    # Декодируем в bytes
+    decoded_raw_id = b64decode(raw_id_str)
     return RegistrationCredential(
-        id=decoded_raw_id,
+        # id должен быть той же строкой в base64url (как пришел от клиента)
+        id=raw_id_str,
+        # raw_id должен быть декодированными bytes
         raw_id=decoded_raw_id,
         response=AuthenticatorAttestationResponse(
             attestation_object=b64decode(payload["response"]["attestationObject"]),
             client_data_json=b64decode(payload["response"]["clientDataJSON"]),
         ),
-        type=payload.get("type") or "public-key",
+        type=PublicKeyCredentialType.PUBLIC_KEY,
     )
 
 
 def build_authentication_credential(payload: dict) -> AuthenticationCredential:
     response = payload["response"]
-    decoded_raw_id = b64decode(payload.get("rawId") or payload.get("id"))
+    # Получаем rawId - это base64url-encoded string
+    raw_id_str = payload.get("rawId") or payload.get("id")
+    if not raw_id_str:
+        raise ValueError("rawId or id not found in payload")
+    decoded_raw_id = b64decode(raw_id_str)
     return AuthenticationCredential(
-        id=decoded_raw_id,
+        # id должен быть той же строкой в base64url
+        id=raw_id_str,
+        # raw_id должен быть декодированными bytes
         raw_id=decoded_raw_id,
         response=AuthenticatorAssertionResponse(
             authenticator_data=b64decode(response["authenticatorData"]),
@@ -130,7 +144,7 @@ def build_authentication_credential(payload: dict) -> AuthenticationCredential:
             signature=b64decode(response["signature"]),
             user_handle=b64decode(response["userHandle"]) if response.get("userHandle") else None,
         ),
-        type=payload.get("type") or "public-key",
+        type=PublicKeyCredentialType.PUBLIC_KEY,
     )
 
 
@@ -292,7 +306,7 @@ async def get_passkey_registration_options(
         PublicKeyCredentialDescriptor(
             id=b64decode(pk.credential_id),
             transports=[AuthenticatorTransport(t) for t in (pk.transports or "").split(",") if t],
-            type="public-key",
+            type=PublicKeyCredentialType.PUBLIC_KEY,
         )
         for pk in existing
     ]
@@ -364,7 +378,7 @@ async def get_passkey_login_options(
         PublicKeyCredentialDescriptor(
             id=b64decode(pk.credential_id),
             transports=[AuthenticatorTransport(t) for t in (pk.transports or "").split(",") if t],
-            type="public-key",
+            type=PublicKeyCredentialType.PUBLIC_KEY,
         )
         for pk in user_passkeys
     ]
@@ -392,7 +406,11 @@ async def verify_passkey_login(
     if not expected_challenge:
         raise HTTPException(status_code=400, detail="Authentication challenge not found")
 
-    credential_id = req.credential.get("rawId") or req.credential.get("id")
+    # credential_id from client is base64url encoded, we need to encode it the same way as stored
+    raw_credential_id = req.credential.get("rawId") or req.credential.get("id")
+    if not raw_credential_id:
+        raise HTTPException(status_code=400, detail="Invalid credential format")
+    credential_id = b64encode(b64decode(raw_credential_id))
     passkey = await get_passkey_by_credential_id(db, credential_id)
     if not passkey:
         raise HTTPException(status_code=400, detail="Unknown passkey")
@@ -413,7 +431,8 @@ async def verify_passkey_login(
     passkey.sign_count = verification.new_sign_count
     db.add(passkey)
     await db.commit()
-    authentication_challenges.pop(user.id, None)
+    if user.id in authentication_challenges:
+        authentication_challenges.pop(user.id)
     set_session_cookie(response, user)
     return {"status": "ok"}
 
