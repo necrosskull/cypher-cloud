@@ -290,7 +290,7 @@ async def verify_passkey_registration(
 
     try:
         verification = verify_registration_response(
-            credential=RegistrationCredential.parse_obj(req.credential),
+            credential=RegistrationCredential(**req.credential),
             expected_challenge=expected_challenge,
             expected_origin=ORIGIN,
             expected_rp_id=RP_ID,
@@ -367,7 +367,7 @@ async def verify_passkey_login(
 
     try:
         verification = verify_authentication_response(
-            credential=AuthenticationCredential.parse_obj(req.credential),
+            credential=AuthenticationCredential(**req.credential),
             expected_challenge=expected_challenge,
             expected_rp_id=RP_ID,
             expected_origin=ORIGIN,
