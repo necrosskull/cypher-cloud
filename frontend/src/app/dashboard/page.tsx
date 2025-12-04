@@ -41,27 +41,27 @@ const getFileIcon = (filename: string) => {
     case 'png':
     case 'gif':
     case 'webp':
-      return <Image className="h-5 w-5 text-blue-500" />;
+      return <Image className="h-5 w-5 text-primary" />;
     case 'mp4':
     case 'avi':
     case 'mov':
     case 'mkv':
-      return <Video className="h-5 w-5 text-purple-500" />;
+      return <Video className="h-5 w-5 text-primary" />;
     case 'mp3':
     case 'wav':
     case 'flac':
-      return <Music className="h-5 w-5 text-green-500" />;
+      return <Music className="h-5 w-5 text-primary" />;
     case 'zip':
     case 'rar':
     case '7z':
-      return <Archive className="h-5 w-5 text-orange-500" />;
+      return <Archive className="h-5 w-5 text-primary" />;
     case 'txt':
     case 'doc':
     case 'docx':
     case 'pdf':
-      return <FileText className="h-5 w-5 text-red-500" />;
+      return <FileText className="h-5 w-5 text-primary" />;
     default:
-      return <File className="h-5 w-5 text-gray-500" />;
+      return <File className="h-5 w-5 text-muted-foreground" />;
   }
 };
 
@@ -185,103 +185,158 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex justify-center pt-8 px-4">
-      <div className="w-full max-w-4xl space-y-6">
-        {/* Заголовок */}
-        <Card>
-          <CardHeader className="text-center">
-            <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4">
-              <Files className="h-6 w-6" />
+    <div className="min-h-[calc(100vh-5rem)] flex justify-center px-4 py-10">
+      <div className="w-full max-w-5xl space-y-6">
+        <div className="space-y-2">
+          <Badge variant="secondary" className="soft-pill inline-flex items-center gap-2">
+            <Files className="h-3 w-3" />
+            Файлы в облаке
+          </Badge>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Мои файлы</h1>
+              <p className="text-muted-foreground">
+                Перетаскивайте файлы, отслеживайте загрузку и управляйте списком без лишнего шума.
+              </p>
             </div>
-            <CardTitle className="text-2xl">Мои файлы</CardTitle>
-          </CardHeader>
-        </Card>
-
-        {/* Зона загрузки */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center space-x-2">
-              <CloudUpload className="h-5 w-5" />
-              <span>Загрузка файлов</span>
-            </CardTitle>
-          </CardHeader>
-          
-          <CardContent className="space-y-4">
-            <div
-              {...getRootProps()}
-              className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-                isDragActive 
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-950' 
-                  : 'border-muted-foreground/25 hover:border-muted-foreground/50'
-              }`}
-            >
-              <input {...getInputProps()} />
-              <div className="space-y-4">
-                <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center">
-                  <Upload className="h-6 w-6" />
-                </div>
-                {isDragActive ? (
-                  <p className="text-lg">Отпустите файлы здесь...</p>
-                ) : (
-                  <div className="space-y-2">
-                    <p className="text-lg">Перетащите файлы сюда или нажмите для выбора</p>
-                    <p className="text-sm text-muted-foreground">
-                      Поддерживается загрузка нескольких файлов (до 100МБ каждый)
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {selectedFiles.length > 0 && (
-              <div className="space-y-3">
-                <div className="space-y-2">
-                  <h4 className="font-medium">Выбранные файлы:</h4>
-                  {selectedFiles.map((file, index) => (
-                    <div key={index} className="flex items-center justify-between p-2 bg-muted rounded">
-                      <div className="flex items-center space-x-2">
-                        {getFileIcon(file.name)}
-                        <span className="text-sm">{file.name}</span>
-                        <Badge variant="secondary" className="text-xs">
-                          {formatFileSize(file.size)}
-                        </Badge>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setSelectedFiles(prev => prev.filter((_, i) => i !== index))}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-                
-                <Button 
-                  onClick={handleUpload} 
-                  disabled={isUploading}
-                  className="w-full"
-                >
-                  {isUploading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Загрузка...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="mr-2 h-4 w-4" />
-                      Загрузить {selectedFiles.length} файл(ов)
-                    </>
-                  )}
-                </Button>
-              </div>
+            {!isLoading && (
+              <Badge variant="outline" className="soft-pill border-primary/40 text-primary">
+                Всего файлов: {files.length}
+              </Badge>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+          {/* Зона загрузки */}
+          <Card className="glass-panel">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg flex items-center space-x-2">
+                <CloudUpload className="h-5 w-5" />
+                <span>Загрузка файлов</span>
+              </CardTitle>
+            </CardHeader>
+            
+            <CardContent className="space-y-4">
+              <div
+                {...getRootProps()}
+                className={`group border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${
+                  isDragActive 
+                    ? 'border-primary/80 bg-primary/5 shadow-inner shadow-primary/10' 
+                    : 'border-border/80 hover:border-primary/50 hover:bg-primary/5'
+                }`}
+              >
+                <input {...getInputProps()} />
+                <div className="space-y-4">
+                  <div className="mx-auto w-12 h-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center">
+                    <Upload className="h-6 w-6" />
+                  </div>
+                  {isDragActive ? (
+                    <p className="text-lg">Отпустите файлы здесь...</p>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-lg font-semibold">Перетащите файлы сюда или нажмите для выбора</p>
+                      <p className="text-sm text-muted-foreground">
+                        Поддерживается загрузка нескольких файлов
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {selectedFiles.length > 0 && (
+                <div className="space-y-3 rounded-xl border border-primary/20 bg-primary/5 p-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-medium">Выбранные файлы</h4>
+                    <Badge variant="secondary">{selectedFiles.length}</Badge>
+                  </div>
+                  <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                    {selectedFiles.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-background/70 border border-border/70">
+                        <div className="flex items-center space-x-3">
+                          {getFileIcon(file.name)}
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium">{file.name}</p>
+                            <Badge variant="secondary" className="text-xs">
+                              {formatFileSize(file.size)}
+                            </Badge>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedFiles(prev => prev.filter((_, i) => i !== index))}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <Button 
+                    onClick={handleUpload} 
+                    disabled={isUploading}
+                    className="w-full rounded-full"
+                  >
+                    {isUploading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Загрузка...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="mr-2 h-4 w-4" />
+                        Загрузить {selectedFiles.length} файл(ов)
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Сводка */}
+          <Card className="glass-panel">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg flex items-center space-x-2">
+                <FolderOpen className="h-5 w-5" />
+                <span>Сводка</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border border-border/80 bg-primary/5 p-4">
+                  <p className="text-xs text-muted-foreground">Всего файлов</p>
+                  <p className="text-2xl font-semibold flex items-center gap-2">
+                    {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : files.length}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border/80 bg-secondary/70 p-4">
+                  <p className="text-xs text-muted-foreground">Выбрано к загрузке</p>
+                  <p className="text-2xl font-semibold flex items-center gap-2">
+                    {selectedFiles.length}
+                    <Badge variant="outline" className="text-xs">готово</Badge>
+                  </p>
+                </div>
+              </div>
+              <div className="rounded-xl border border-border/70 bg-background/80 p-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-primary" />
+                  <p className="text-sm font-semibold">Советы</p>
+                </div>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  <li>• Храните важные файлы в защищённых папках.</li>
+                  <li>• Включите 2FA в настройках для лучших практик безопасности.</li>
+                  <li>• Обновляйте список, если загружаете большие объёмы.</li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Сообщения */}
         {message && (
-          <Alert variant={messageType === "error" ? "destructive" : "default"}>
+          <Alert variant={messageType === "error" ? "destructive" : "default"} className="glass-panel border border-border/70">
             {messageType === "error" ? (
               <AlertCircle className="h-4 w-4" />
             ) : (
@@ -292,7 +347,7 @@ export default function DashboardPage() {
         )}
 
         {/* Список файлов */}
-        <Card>
+        <Card className="glass-panel">
           <CardHeader>
             <CardTitle className="text-lg flex items-center space-x-2">
               <FolderOpen className="h-5 w-5" />
@@ -313,11 +368,11 @@ export default function DashboardPage() {
                 <p className="text-sm">Загрузите файлы чтобы начать работу</p>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="divide-y divide-border/70">
                 {files.map((file) => (
                   <div 
                     key={file.id} 
-                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                    className="flex items-center justify-between py-3"
                   >
                     <div className="flex items-center space-x-3">
                       {getFileIcon(file.filename)}
@@ -336,6 +391,7 @@ export default function DashboardPage() {
                         variant="outline" 
                         size="sm"
                         onClick={() => handleDownload(file.id, file.filename)}
+                        className="rounded-full"
                       >
                         <Download className="h-4 w-4 mr-1" />
                         Скачать
@@ -344,6 +400,7 @@ export default function DashboardPage() {
                         variant="destructive" 
                         size="sm"
                         onClick={() => handleDelete(file.id, file.filename)}
+                        className="rounded-full"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

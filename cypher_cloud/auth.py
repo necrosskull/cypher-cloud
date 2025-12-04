@@ -1,5 +1,8 @@
+import base64
+import json
 import time
-from typing import Optional
+from typing import Dict, Optional
+from urllib.parse import urlparse
 
 import pyotp
 from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Response
@@ -12,7 +15,7 @@ from sqlalchemy.future import select
 
 from cypher_cloud.config import settings
 from cypher_cloud.database import get_db
-from cypher_cloud.models import User
+from cypher_cloud.models import Passkey, User
 from cypher_cloud.schemas import (
     ChangePasswordRequest,
     ConfirmEmailRequest,
@@ -25,6 +28,25 @@ from cypher_cloud.schemas import (
     TokenResponse,
     UserResponse,
     Verify2FARequest,
+    PasskeyRegistrationOptionsResponse,
+    PasskeyVerifyRegistrationRequest,
+    PasskeyLoginOptionsRequest,
+    PasskeyLoginOptionsResponse,
+    PasskeyLoginVerifyRequest,
+)
+from webauthn import (
+    generate_authentication_options,
+    generate_registration_options,
+    verify_authentication_response,
+    verify_registration_response,
+    options_to_json,
+)
+from webauthn.helpers.structs import (
+    AuthenticationCredential,
+    AuthenticatorTransport,
+    RegistrationCredential,
+    UserVerificationRequirement,
+    PublicKeyCredentialDescriptor,
 )
 
 router = APIRouter()
@@ -48,6 +70,37 @@ SECRET_KEY = settings.SECRET_KEY
 ALGORITHM = settings.ALGORITHM
 ACCESS_TOKEN_EXPIRE_SECONDS = settings.ACCESS_TOKEN_EXPIRE_SECONDS
 ISSUER_NAME = settings.ISSUER_NAME
+RP_ID = urlparse(settings.site_url).hostname or settings.site_url
+RP_NAME = "Cypher Cloud"
+ORIGIN = settings.site_url
+
+registration_challenges: Dict[int, str] = {}
+authentication_challenges: Dict[int, str] = {}
+
+
+def b64encode(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
+
+
+def b64decode(data: str) -> bytes:
+    padding = '=' * (-len(data) % 4)
+    return base64.urlsafe_b64decode(data + padding)
+
+
+def set_session_cookie(response: Response, user: User):
+    now = int(time.time())
+    payload = {
+        "sub": str(user.id),
+        "exp": now + ACCESS_TOKEN_EXPIRE_SECONDS,
+        "iss": ISSUER_NAME,
+    }
+    token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        expires=ACCESS_TOKEN_EXPIRE_SECONDS,
+    )
 
 
 async def get_user_by_email(session: AsyncSession, email: str) -> Optional[User]:
@@ -57,6 +110,20 @@ async def get_user_by_email(session: AsyncSession, email: str) -> Optional[User]
 
 async def get_user_by_id(session: AsyncSession, user_id: int) -> Optional[User]:
     result = await session.execute(select(User).where(User.id == user_id))
+    return result.scalars().first()
+
+
+async def get_passkeys_for_user(session: AsyncSession, user_id: int) -> list[Passkey]:
+    result = await session.execute(select(Passkey).where(Passkey.user_id == user_id))
+    return list(result.scalars().all())
+
+
+async def get_passkey_by_credential_id(
+    session: AsyncSession, credential_id: str
+) -> Optional[Passkey]:
+    result = await session.execute(
+        select(Passkey).where(Passkey.credential_id == credential_id)
+    )
     return result.scalars().first()
 
 
@@ -180,21 +247,141 @@ async def login_user(
             raise HTTPException(status_code=401, detail="Invalid 2FA code")
 
     # Генерируем JWT
-    now = int(time.time())
-    payload = {
-        "sub": str(user.id),
-        "exp": now + ACCESS_TOKEN_EXPIRE_SECONDS,
-        "iss": ISSUER_NAME,
-    }
-    token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    set_session_cookie(response, user)
+    return {"status": "ok"}
 
-    # Сохраняем в куки
-    response.set_cookie(
-        key="access_token",
-        value=token,
-        httponly=True,
-        expires=ACCESS_TOKEN_EXPIRE_SECONDS,
+
+@router.get("/passkey/register-options", response_model=PasskeyRegistrationOptionsResponse)
+async def get_passkey_registration_options(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    existing = await get_passkeys_for_user(db, user.id)
+    exclude_credentials = [
+        PublicKeyCredentialDescriptor(
+            id=b64decode(pk.credential_id),
+            transports=[AuthenticatorTransport(t) for t in (pk.transports or "").split(",") if t],
+            type="public-key",
+        )
+        for pk in existing
+    ]
+
+    options = generate_registration_options(
+        rp_name=RP_NAME,
+        rp_id=RP_ID,
+        user_id=str(user.id).encode(),
+        user_name=user.email,
+        user_display_name=user.email,
+        exclude_credentials=exclude_credentials,
     )
+    registration_challenges[user.id] = options.challenge
+    return PasskeyRegistrationOptionsResponse(options=json.loads(options_to_json(options)))
+
+
+@router.post("/passkey/register-verify")
+async def verify_passkey_registration(
+    req: PasskeyVerifyRegistrationRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    expected_challenge = registration_challenges.get(user.id)
+    if not expected_challenge:
+        raise HTTPException(status_code=400, detail="Registration challenge not found")
+
+    try:
+        verification = verify_registration_response(
+            credential=RegistrationCredential.parse_obj(req.credential),
+            expected_challenge=expected_challenge,
+            expected_origin=ORIGIN,
+            expected_rp_id=RP_ID,
+        )
+    except Exception as exc:  # pylint: disable=broad-except
+        raise HTTPException(status_code=400, detail=f"Passkey verify failed: {exc}")
+
+    new_passkey = Passkey(
+        user_id=user.id,
+        credential_id=b64encode(verification.credential_id),
+        public_key=b64encode(verification.credential_public_key),
+        sign_count=verification.sign_count,
+        user_handle=b64encode(verification.user_id),
+        nickname=req.nickname,
+        transports=",".join(
+            req.credential.get("transports", []) if isinstance(req.credential, dict) else []
+        ),
+    )
+    db.add(new_passkey)
+    await db.commit()
+    registration_challenges.pop(user.id, None)
+    return {"status": "ok"}
+
+
+@router.post("/passkey/login-options", response_model=PasskeyLoginOptionsResponse)
+async def get_passkey_login_options(
+    req: PasskeyLoginOptionsRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    user = await get_user_by_email(db, req.email)
+    if not user or not user.email_confirmed:
+        raise HTTPException(status_code=404, detail="User not found or not confirmed")
+
+    user_passkeys = await get_passkeys_for_user(db, user.id)
+    if not user_passkeys:
+        raise HTTPException(status_code=400, detail="No passkeys registered")
+
+    allow_credentials = [
+        PublicKeyCredentialDescriptor(
+            id=b64decode(pk.credential_id),
+            transports=[AuthenticatorTransport(t) for t in (pk.transports or "").split(",") if t],
+            type="public-key",
+        )
+        for pk in user_passkeys
+    ]
+
+    options = generate_authentication_options(
+        rp_id=RP_ID,
+        user_verification=UserVerificationRequirement.PREFERRED,
+        allow_credentials=allow_credentials,
+    )
+    authentication_challenges[user.id] = options.challenge
+    return PasskeyLoginOptionsResponse(options=json.loads(options_to_json(options)))
+
+
+@router.post("/passkey/login-verify")
+async def verify_passkey_login(
+    req: PasskeyLoginVerifyRequest,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+):
+    user = await get_user_by_email(db, req.email)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    expected_challenge = authentication_challenges.get(user.id)
+    if not expected_challenge:
+        raise HTTPException(status_code=400, detail="Authentication challenge not found")
+
+    credential_id = req.credential.get("rawId") or req.credential.get("id")
+    passkey = await get_passkey_by_credential_id(db, credential_id)
+    if not passkey:
+        raise HTTPException(status_code=400, detail="Unknown passkey")
+
+    try:
+        verification = verify_authentication_response(
+            credential=AuthenticationCredential.parse_obj(req.credential),
+            expected_challenge=expected_challenge,
+            expected_rp_id=RP_ID,
+            expected_origin=ORIGIN,
+            credential_public_key=b64decode(passkey.public_key),
+            credential_current_sign_count=passkey.sign_count,
+        )
+    except Exception as exc:  # pylint: disable=broad-except
+        raise HTTPException(status_code=400, detail=f"Passkey login failed: {exc}")
+
+    passkey.sign_count = verification.new_sign_count
+    db.add(passkey)
+    await db.commit()
+    authentication_challenges.pop(user.id, None)
+    set_session_cookie(response, user)
     return {"status": "ok"}
 
 

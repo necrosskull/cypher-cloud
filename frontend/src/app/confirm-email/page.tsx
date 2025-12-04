@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, CheckCircle, AlertCircle, Mail } from "lucide-react";
@@ -49,23 +50,31 @@ export default function ConfirmEmailPage() {
   }, [searchParams]);
 
   return (
-    <div className="flex justify-center pt-12 px-4">
-      <div className="w-full max-w-md">
-        <Card>
+    <div className="min-h-[calc(100vh-5rem)] flex items-center justify-center px-4 py-10">
+      <div className="w-full max-w-lg space-y-4">
+        <div className="text-center space-y-2">
+          <Badge variant="secondary" className="soft-pill mx-auto">Подтверждаем почту</Badge>
+          <h1 className="text-3xl font-bold tracking-tight">Почти готово</h1>
+          <p className="text-muted-foreground">
+            Проверяем ссылку и активируем ваш профиль в облаке.
+          </p>
+        </div>
+
+        <Card className="glass-panel">
           <CardHeader className="text-center space-y-4">
-            <div className={`mx-auto w-12 h-12 rounded-full flex items-center justify-center ${
+            <div className={`mx-auto w-12 h-12 rounded-2xl flex items-center justify-center text-primary-foreground shadow-primary/30 shadow-lg ${
               isLoading 
-                ? 'bg-muted' 
+                ? 'bg-muted text-foreground' 
                 : isConfirmed 
-                  ? 'bg-green-100 dark:bg-green-900' 
-                  : 'bg-red-100 dark:bg-red-900'
+                  ? 'bg-gradient-to-br from-primary to-emerald-500' 
+                  : 'bg-destructive/80'
             }`}>
               {isLoading ? (
                 <Loader2 className="h-6 w-6 animate-spin" />
               ) : isConfirmed ? (
-                <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
+                <CheckCircle className="h-6 w-6" />
               ) : (
-                <AlertCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
+                <AlertCircle className="h-6 w-6" />
               )}
             </div>
             <CardTitle className="text-2xl">
@@ -95,7 +104,7 @@ export default function ConfirmEmailPage() {
                   {isConfirmed ? (
                     <Button 
                       onClick={() => router.push('/login')}
-                      className="w-full"
+                      className="w-full rounded-full"
                     >
                       Войти в систему
                     </Button>
@@ -104,7 +113,7 @@ export default function ConfirmEmailPage() {
                       <Button 
                         variant="outline"
                         onClick={() => router.push('/register')}
-                        className="w-full"
+                        className="w-full rounded-full"
                       >
                         Повторить регистрацию
                       </Button>

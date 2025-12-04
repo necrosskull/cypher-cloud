@@ -21,7 +21,9 @@ import {
   Copy,
   Eye,
   EyeOff,
-  Trash2
+  Trash2,
+  Fingerprint,
+  KeyRound
 } from "lucide-react";
 import {
   InputOTP,
@@ -44,8 +46,10 @@ export default function SettingsPage() {
   const [isDisabling, setIsDisabling] = useState(false);
   const [showUrl, setShowUrl] = useState(false);
   const [showDisableForm, setShowDisableForm] = useState(false);
+  const [isPasskeyLoading, setIsPasskeyLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+  const [passkeyMessage, setPasskeyMessage] = useState<string | null>(null);
 
   useEffect(() => {
     async function checkAuth() {
@@ -153,28 +157,167 @@ export default function SettingsPage() {
     }
   };
 
+  const encode = (buf: ArrayBuffer) =>
+    btoa(String.fromCharCode(...new Uint8Array(buf)))
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=/g, "");
+
+  const decode = (value: string) => {
+    const normalized = value.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (value.length % 4)) % 4);
+    const str = atob(normalized);
+    const bytes = new Uint8Array(str.length);
+    for (let i = 0; i < str.length; i++) bytes[i] = str.charCodeAt(i);
+    return bytes.buffer;
+  };
+
+  const setupPasskey = async () => {
+    if (typeof window === "undefined" || !window.PublicKeyCredential) {
+      setPasskeyMessage("Passkey не поддерживается в этом браузере.");
+      return;
+    }
+    if (typeof window !== "undefined" && !window.isSecureContext) {
+      setPasskeyMessage("Passkey можно создать только в защищённом контексте (https/localhost). Откройте страницу по https.");
+      return;
+    }
+    try {
+      const supported = await (window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable?.() || Promise.resolve(false));
+      if (!supported) {
+        setPasskeyMessage("На этом устройстве нет поддержки платформенных ключей.");
+        return;
+      }
+    } catch {
+      setPasskeyMessage("Не удалось проверить поддержку passkey в браузере.");
+      return;
+    }
+    setIsPasskeyLoading(true);
+    setPasskeyMessage(null);
+    try {
+      const { data } = await api.get("/auth/passkey/register-options");
+      const opts = data.options;
+
+      const options: PublicKeyCredentialCreationOptions = {
+        ...opts,
+        challenge: decode(opts.challenge),
+        user: {
+          ...opts.user,
+          id: decode(opts.user.id),
+        },
+        excludeCredentials: opts.excludeCredentials?.map((cred: any) => ({
+          ...cred,
+          id: decode(cred.id),
+        })),
+      };
+
+      const cred = (await navigator.credentials.create({ publicKey: options })) as PublicKeyCredential;
+      const response = cred.response as AuthenticatorAttestationResponse;
+
+      const payload = {
+        nickname: "Основной passkey",
+        credential: {
+          id: cred.id,
+          rawId: encode(cred.rawId),
+          type: cred.type,
+          transports: (cred as any).transports,
+          response: {
+            attestationObject: encode(response.attestationObject),
+            clientDataJSON: encode(response.clientDataJSON),
+          },
+          clientExtensionResults: cred.getClientExtensionResults(),
+        },
+      };
+
+      await api.post("/auth/passkey/register-verify", payload);
+      setPasskeyMessage("Passkey успешно добавлен. Теперь можно входить без пароля.");
+    } catch (error: any) {
+      console.error(error);
+      setPasskeyMessage(error.response?.data?.detail || "Не удалось создать passkey");
+    } finally {
+      setIsPasskeyLoading(false);
+    }
+  };
+
   return (
-    <div className="flex justify-center pt-8 px-4">
-      <div className="w-full max-w-2xl space-y-6">
-        {/* Заголовок */}
-        <Card>
-          <CardHeader className="text-center">
-            <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4">
-              <Settings className="h-6 w-6" />
+    <div className="min-h-[calc(100vh-5rem)] flex justify-center px-4 py-10">
+      <div className="w-full max-w-3xl space-y-6">
+        <div className="space-y-2">
+          <Badge variant="secondary" className="soft-pill inline-flex items-center gap-2">
+            <Shield className="h-3 w-3" />
+            Безопасность аккаунта
+          </Badge>
+          <h1 className="text-3xl font-bold tracking-tight">Настройки и защита</h1>
+          <p className="text-muted-foreground max-w-2xl">
+            Управляйте паролем, двухфакторной аутентификацией и кодами доступа в минималистичном зелёном стиле.
+          </p>
+      </div>
+
+        <Card className="glass-panel">
+          <CardHeader className="flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-primary to-emerald-500 text-primary-foreground flex items-center justify-center shadow-primary/30 shadow-lg">
+                <Settings className="h-6 w-6" />
+              </div>
+              <div>
+                <CardTitle className="text-2xl">Настройки безопасности</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Рекомендуем включить 2FA и регулярно обновлять пароль.
+                </p>
+              </div>
             </div>
-            <CardTitle className="text-2xl">Настройки безопасности</CardTitle>
           </CardHeader>
+        </Card>
+
+        <Card className="glass-panel">
+          <CardHeader className="pb-4">
+            <div className="flex items-center space-x-3">
+              <div className="p-3 bg-primary/10 rounded-xl text-primary">
+                <Fingerprint className="h-5 w-5" />
+              </div>
+              <div className="flex-1">
+                <CardTitle className="text-lg">Passkey вход</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Создайте passkey, чтобы входить без пароля. Работает на поддерживаемых устройствах.
+                </p>
+              </div>
+              <Button
+                variant="default"
+                size="sm"
+                className="rounded-full"
+                onClick={setupPasskey}
+                disabled={isPasskeyLoading}
+              >
+                {isPasskeyLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Создание...
+                  </>
+                ) : (
+                  <>
+                    <KeyRound className="mr-2 h-4 w-4" />
+                    Создать passkey
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardHeader>
+          {passkeyMessage && (
+            <CardContent>
+              <Alert variant={passkeyMessage.includes("не") ? "destructive" : "default"}>
+                <AlertDescription>{passkeyMessage}</AlertDescription>
+              </Alert>
+            </CardContent>
+          )}
         </Card>
 
         {/* Смена пароля */}
         <ChangePassword />
 
         {/* Настройка 2FA */}
-        <Card>
-          <CardHeader>
+        <Card className="glass-panel">
+          <CardHeader className="pb-4">
             <div className="flex items-center space-x-3">
-              <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                <Shield className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              <div className="p-3 bg-primary/10 rounded-xl text-primary">
+                <Shield className="h-5 w-5" />
               </div>
               <div className="flex-1">
                 <CardTitle className="text-lg">Двухфакторная аутентификация</CardTitle>
@@ -188,7 +331,7 @@ export default function SettingsPage() {
                 variant="destructive"
                 size="sm"
                 onClick={() => setShowDisableForm(!showDisableForm)}
-                className="flex items-center space-x-2"
+                className="flex items-center space-x-2 rounded-full"
               >
                 <Trash2 className="h-4 w-4" />
                 <span className="hidden sm:block">Отключить 2FA</span>
@@ -200,7 +343,7 @@ export default function SettingsPage() {
             <Button 
               onClick={handleSetup2FA}
               disabled={isLoading}
-              className="w-full sm:w-auto"
+              className="w-full sm:w-auto rounded-full shadow-primary/20 shadow-md"
             >
               {isLoading ? (
                 <>
@@ -260,6 +403,7 @@ export default function SettingsPage() {
                       variant="destructive"
                       onClick={handleDisable2FA}
                       disabled={isDisabling || disableCode.length !== 6 || !disablePassword}
+                      className="rounded-full"
                     >
                       {isDisabling ? (
                         <>
@@ -281,6 +425,7 @@ export default function SettingsPage() {
                         setDisableCode("");
                         setDisablePassword("");
                       }}
+                      className="rounded-full"
                     >
                       Отмена
                     </Button>
@@ -302,7 +447,7 @@ export default function SettingsPage() {
                     </Label>
                   </div>
                   
-                  <div className="inline-block p-4 bg-white rounded-lg border">
+                  <div className="inline-block p-4 bg-background rounded-lg border border-border/70">
                     <QRCodeSVG value={otpauthUrl} size={200} />
                   </div>
                   
@@ -347,7 +492,7 @@ export default function SettingsPage() {
         </Card>
 
         {/* Верификация кода */}
-        <Card>
+        <Card className="glass-panel">
           <CardHeader>
             <CardTitle className="text-lg flex items-center space-x-2">
               <CheckCircle className="h-5 w-5" />
@@ -380,7 +525,7 @@ export default function SettingsPage() {
             <Button 
               onClick={handleVerify2FA}
               disabled={isVerifying || code.length !== 6}
-              className="w-full sm:w-auto"
+              className="w-full sm:w-auto rounded-full"
             >
               {isVerifying ? (
                 <>

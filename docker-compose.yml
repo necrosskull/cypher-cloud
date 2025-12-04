@@ -52,7 +52,7 @@ services:
       - frontend
       - backend
     ports:
-      - ${APP_PORT:-8080}:80
+      - ${APP_PORT:-8080}:443
     networks:
       - application
 

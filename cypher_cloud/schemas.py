@@ -70,6 +70,28 @@ class UserResponse(BaseModel):
         from_attributes = True
 
 
+class PasskeyRegistrationOptionsResponse(BaseModel):
+    options: dict
+
+
+class PasskeyVerifyRegistrationRequest(BaseModel):
+    credential: dict
+    nickname: str | None = None
+
+
+class PasskeyLoginOptionsRequest(BaseModel):
+    email: EmailStr
+
+
+class PasskeyLoginOptionsResponse(BaseModel):
+    options: dict
+
+
+class PasskeyLoginVerifyRequest(BaseModel):
+    email: EmailStr
+    credential: dict
+
+
 # --- Files ---
 
 

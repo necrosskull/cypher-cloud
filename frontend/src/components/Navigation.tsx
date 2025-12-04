@@ -13,10 +13,12 @@ import {
   Settings,
   UserPlus,
   LogIn,
-  CloudUpload
+  CloudUpload,
+  Sparkles
 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { cn } from '@/lib/utils';
 
 export const Navigation = () => {
   const { userEmail, isAuthorized, isLoading, logout } = useAuth();
@@ -42,104 +44,74 @@ export const Navigation = () => {
     router.push(path);
   };
 
-  const isActivePath = (path: string) => {
-    return pathname === path;
-  };
+  const isActivePath = (path: string) => pathname === path;
+
+  const links = useMemo(
+    () =>
+      isAuthorized
+        ? [
+            { label: 'Файлы', icon: Files, path: '/dashboard' },
+            { label: 'Настройки', icon: Settings, path: '/settings' },
+          ]
+        : [{ label: 'Главная', icon: Home, path: '/' }],
+    [isAuthorized]
+  );
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <nav className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/85 backdrop-blur-xl">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        
-        {/* Левая часть - навигация */}
-        <div className="flex items-center space-x-1">
-          {/* Логотип/Название */}
-          <div className="flex items-center space-x-2 mr-6">
-            <div className="p-2 bg-primary rounded-lg">
-              <CloudUpload className="h-5 w-5 text-primary-foreground" />
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-primary via-primary/85 to-emerald-500 text-primary-foreground shadow-lg shadow-primary/30 flex items-center justify-center">
+              <CloudUpload className="h-5 w-5" />
             </div>
-            <span className="font-semibold text-lg hidden sm:block">
-              Облако ИИИ
-            </span>
+            <div className="leading-tight hidden sm:block">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">облако иии</p>
+            </div>
           </div>
 
-          {/* Навигационные кнопки */}
           {!isLoading && (
-            <>
-              {/* Кнопка "Главная" только для неавторизованных */}
-              {!isAuthorized && (
-                <Button 
-                  variant={isActivePath('/') ? "default" : "ghost"}
+            <div className="hidden md:flex items-center gap-1 rounded-full bg-secondary/60 px-1.5 py-1">
+              {links.map(({ label, icon: Icon, path }) => (
+                <Button
+                  key={path}
+                  variant={isActivePath(path) ? 'default' : 'ghost'}
                   size="sm"
-                  onClick={() => handleNavigation('/')}
-                  className="flex items-center space-x-2"
+                  onClick={() => handleNavigation(path)}
+                  className={cn(
+                    'rounded-full px-3',
+                    isActivePath(path)
+                      ? 'shadow-sm shadow-primary/25'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
                 >
-                  <Home className="h-4 w-4" />
-                  <span className="hidden sm:block">Главная</span>
+                  <Icon className="h-4 w-4" />
+                  <span>{label}</span>
                 </Button>
-              )}
-
-              {/* Кнопки для авторизованных */}
-              {isAuthorized && (
-                <>
-                  <Button 
-                    variant={isActivePath('/dashboard') ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => handleNavigation('/dashboard')}
-                    className="flex items-center space-x-2"
-                  >
-                    <Files className="h-4 w-4" />
-                    <span className="hidden sm:block">Файлы</span>
-                  </Button>
-                  
-                  <Button 
-                    variant={isActivePath('/settings') ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => handleNavigation('/settings')}
-                    className="flex items-center space-x-2"
-                  >
-                    <Settings className="h-4 w-4" />
-                    <span className="hidden sm:block">Настройки</span>
-                  </Button>
-                </>
-              )}
-            </>
+              ))}
+            </div>
           )}
-          
-          {/* Скелетон загрузки */}
+
           {isLoading && (
             <div className="flex space-x-2">
-              <div className="h-8 w-20 bg-muted rounded-md animate-pulse"></div>
-              <div className="h-8 w-24 bg-muted rounded-md animate-pulse"></div>
+              <div className="h-8 w-20 bg-muted rounded-full animate-pulse" />
+              <div className="h-8 w-24 bg-muted rounded-full animate-pulse" />
             </div>
           )}
         </div>
 
-        {/* Правая часть - пользователь и действия */}
-        <div className="flex items-center space-x-3">
-          {/* Информация о пользователе */}
+        <div className="flex items-center gap-3">
           {!isLoading && (
-            <div className="flex items-center space-x-3">
-              {isAuthorized ? (
-                <Badge variant="outline" className="flex items-center space-x-2 px-3 py-1">
-                  <User className="h-3 w-3" />
-                  <span className="text-sm font-medium">
-                    {userEmail?.split('@')[0] || 'Пользователь'}
-                  </span>
-                </Badge>
-              ) : (
-                <Badge variant="secondary" className="flex items-center space-x-2 px-3 py-1">
-                  <User className="h-3 w-3" />
-                  <span className="text-sm">Гость</span>
-                </Badge>
-              )}
-            </div>
+            <Badge variant="outline" className="hidden sm:inline-flex items-center gap-2 px-3 py-1">
+              <User className="h-3 w-3" />
+              <span className="text-sm font-medium">
+                {isAuthorized ? userEmail?.split('@')[0] || 'Пользователь' : 'Гость'}
+              </span>
+            </Badge>
           )}
 
-          {isLoading && (
-            <div className="h-7 w-24 bg-muted rounded-full animate-pulse"></div>
-          )}
+          {isLoading && <div className="h-7 w-24 bg-muted rounded-full animate-pulse" />}
 
-          {/* Кнопки действий */}
           {!isLoading && (
             <div className="flex items-center space-x-2">
               {isAuthorized ? (
@@ -148,7 +120,7 @@ export const Navigation = () => {
                   size="sm" 
                   onClick={handleLogout}
                   disabled={isLoggingOut}
-                  className="flex items-center space-x-2"
+                  className="flex items-center space-x-2 rounded-full border-border/70"
                 >
                   {isLoggingOut ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -165,7 +137,7 @@ export const Navigation = () => {
                     variant="ghost" 
                     size="sm"
                     onClick={() => handleNavigation('/login')}
-                    className="flex items-center space-x-2"
+                    className="flex items-center space-x-2 rounded-full"
                   >
                     <LogIn className="h-4 w-4" />
                     <span className="hidden sm:block">Войти</span>
@@ -175,7 +147,7 @@ export const Navigation = () => {
                     variant="default" 
                     size="sm"
                     onClick={() => handleNavigation('/register')}
-                    className="flex items-center space-x-2"
+                    className="flex items-center space-x-2 rounded-full shadow-primary/30 shadow-lg"
                   >
                     <UserPlus className="h-4 w-4" />
                     <span className="hidden sm:block">Регистрация</span>
@@ -192,10 +164,9 @@ export const Navigation = () => {
             </div>
           )}
 
-          {/* Переключатель темы */}
           <ThemeToggle />
         </div>
       </div>
     </nav>
   );
-};
+}

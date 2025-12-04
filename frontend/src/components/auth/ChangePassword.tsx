@@ -61,12 +61,15 @@ export const ChangePassword = () => {
   };
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="glass-panel">
+      <CardHeader className="pb-4">
         <CardTitle className="flex items-center space-x-2">
           <Key className="h-5 w-5" />
           <span>Смена пароля</span>
         </CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Обновляйте пароль регулярно и добавляйте символы, цифры и буквы.
+        </p>
       </CardHeader>
       
       <CardContent>
@@ -104,7 +107,7 @@ export const ChangePassword = () => {
             />
           </div>
 
-          <Button type="submit" disabled={isLoading} className="w-full">
+          <Button type="submit" disabled={isLoading} className="w-full rounded-full">
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -6,10 +6,11 @@ import api from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { PasswordInput } from "@/components/ui/password-input";
-import { Loader2, UserPlus, RefreshCw, Mail, CheckCircle, AlertCircle } from "lucide-react";
+import { Loader2, UserPlus, RefreshCw, CheckCircle, AlertCircle, Sparkles, ShieldCheck } from "lucide-react";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
@@ -85,30 +86,38 @@ export default function RegisterPage() {
 
   if (isRegistered) {
     return (
-      <div className="flex justify-center pt-12 px-4">
-        <div className="w-full max-w-md">
-          <Card>
-            <CardHeader className="text-center space-y-4">
-              <div className="mx-auto w-12 h-12 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
-                <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
+      <div className="min-h-[calc(100vh-5rem)] flex items-center justify-center px-4 py-10">
+        <div className="w-full max-w-lg space-y-4">
+          <div className="text-center space-y-2">
+            <Badge variant="secondary" className="soft-pill mx-auto">Почта отправлена</Badge>
+            <h1 className="text-3xl font-bold tracking-tight">Подтвердите email</h1>
+            <p className="text-muted-foreground">
+              Мы почти закончили: осталось активировать учётную запись.
+            </p>
+          </div>
+
+          <Card className="glass-panel text-center">
+            <CardHeader className="space-y-4">
+              <div className="mx-auto w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-emerald-500 text-primary-foreground flex items-center justify-center shadow-primary/30 shadow-lg">
+                <CheckCircle className="h-6 w-6" />
               </div>
               <CardTitle className="text-2xl">Проверьте почту</CardTitle>
             </CardHeader>
             
-            <CardContent className="space-y-4 text-center">
+            <CardContent className="space-y-4">
               <p className="text-muted-foreground">
                 Мы отправили письмо с подтверждением на адрес:
               </p>
               <p className="font-semibold">{email}</p>
               <p className="text-sm text-muted-foreground">
-                Перейдите по ссылке в письме для активации аккаунта
+                Перейдите по ссылке в письме, чтобы активировать аккаунт и войти.
               </p>
               
               <div className="pt-4">
                 <Button 
                   variant="outline" 
                   onClick={() => router.push('/login')}
-                  className="w-full"
+                  className="w-full rounded-full"
                 >
                   Перейти к входу
                 </Button>
@@ -121,14 +130,24 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex justify-center pt-12 px-4">
-      <div className="w-full max-w-md">
-        <Card>
+    <div className="min-h-[calc(100vh-5rem)] flex items-center justify-center px-4 py-10">
+      <div className="w-full max-w-lg space-y-4">
+        <div className="text-center space-y-2">
+          <h1 className="text-3xl font-bold tracking-tight">Создайте аккаунт</h1>
+          <p className="text-muted-foreground">
+            Ещё больше удобства: быстрый доступ к файлам, двухфакторная защита и чистый интерфейс.
+          </p>
+        </div>
+
+        <Card className="glass-panel">
           <CardHeader className="text-center space-y-4">
-            <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center">
+            <div className="mx-auto w-12 h-12 bg-gradient-to-br from-primary to-emerald-500 rounded-2xl flex items-center justify-center text-primary-foreground shadow-primary/30 shadow-lg">
               <UserPlus className="h-6 w-6" />
             </div>
             <CardTitle className="text-2xl">Регистрация</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Заполните форму, а подтверждение отправим на вашу почту.
+            </p>
           </CardHeader>
           
           <CardContent className="space-y-4">
@@ -161,7 +180,7 @@ export default function RegisterPage() {
                   size="sm"
                   onClick={generateStrongPassword}
                   disabled={isLoading}
-                  className="w-full"
+                  className="w-full rounded-full"
                 >
                   <RefreshCw className="mr-2 h-4 w-4" />
                   Сгенерировать надёжный пароль
@@ -170,7 +189,7 @@ export default function RegisterPage() {
               
               <Button 
                 type="submit"
-                className="w-full"
+                className="w-full rounded-full"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -186,6 +205,11 @@ export default function RegisterPage() {
                 )}
               </Button>
             </form>
+
+            <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-sm text-primary flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4" />
+              Пароль не короче 8 символов, можете добавить спецсимволы и цифры.
+            </div>
 
             {message && (
               <Alert variant={messageType === "error" ? "destructive" : "default"}>

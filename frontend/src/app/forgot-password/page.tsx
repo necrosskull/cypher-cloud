@@ -6,6 +6,7 @@ import api from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Mail, ArrowLeft, CheckCircle, AlertCircle } from "lucide-react";
@@ -52,16 +53,24 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="flex justify-center pt-12 px-4">
-      <div className="w-full max-w-md">
-        <Card>
+    <div className="min-h-[calc(100vh-5rem)] flex items-center justify-center px-4 py-10">
+      <div className="w-full max-w-lg space-y-4">
+        <div className="text-center space-y-2">
+          <Badge variant="secondary" className="soft-pill mx-auto">Поможем восстановить</Badge>
+          <h1 className="text-3xl font-bold tracking-tight">Сбросить пароль</h1>
+          <p className="text-muted-foreground">
+            Укажите почту, и мы отправим ссылку для восстановления доступа.
+          </p>
+        </div>
+
+        <Card className="glass-panel">
           <CardHeader className="text-center space-y-4">
-            <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center">
+            <div className="mx-auto w-12 h-12 bg-gradient-to-br from-primary to-emerald-500 rounded-2xl flex items-center justify-center text-primary-foreground shadow-primary/30 shadow-lg">
               <Mail className="h-6 w-6" />
             </div>
             <CardTitle className="text-2xl">Восстановление пароля</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Введите ваш email и мы отправим ссылку для восстановления пароля
+              Проверьте правильность email, чтобы письмо пришло без задержек.
             </p>
           </CardHeader>
           
@@ -81,7 +90,7 @@ export default function ForgotPasswordPage() {
               
               <Button 
                 type="submit"
-                className="w-full"
+                className="w-full rounded-full"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -109,7 +118,7 @@ export default function ForgotPasswordPage() {
               </Alert>
             )}
             
-            <div className="text-center">
+            <div className="flex items-center justify-center">
               <Button 
                 variant="link" 
                 className="p-0 h-auto" 
