@@ -106,9 +106,10 @@ def set_session_cookie(response: Response, user: User):
 
 
 def build_registration_credential(payload: dict) -> RegistrationCredential:
+    decoded_raw_id = b64decode(payload.get("rawId") or payload.get("id"))
     return RegistrationCredential(
-        id=b64decode(payload.get("id") or payload.get("rawId")),
-        raw_id=b64decode(payload.get("rawId") or payload.get("id")),
+        id=decoded_raw_id,
+        raw_id=decoded_raw_id,
         response=AuthenticatorAttestationResponse(
             attestation_object=b64decode(payload["response"]["attestationObject"]),
             client_data_json=b64decode(payload["response"]["clientDataJSON"]),
@@ -119,9 +120,10 @@ def build_registration_credential(payload: dict) -> RegistrationCredential:
 
 def build_authentication_credential(payload: dict) -> AuthenticationCredential:
     response = payload["response"]
+    decoded_raw_id = b64decode(payload.get("rawId") or payload.get("id"))
     return AuthenticationCredential(
-        id=b64decode(payload.get("id") or payload.get("rawId")),
-        raw_id=b64decode(payload.get("rawId") or payload.get("id")),
+        id=decoded_raw_id,
+        raw_id=decoded_raw_id,
         response=AuthenticatorAssertionResponse(
             authenticator_data=b64decode(response["authenticatorData"]),
             client_data_json=b64decode(response["clientDataJSON"]),
