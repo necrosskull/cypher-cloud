@@ -106,14 +106,6 @@ def set_session_cookie(response: Response, user: User):
 
 
 def build_registration_credential(payload: dict) -> RegistrationCredential:
-    transports_raw = payload.get("transports") or []
-    transports = []
-    for t in transports_raw:
-        try:
-            transports.append(AuthenticatorTransport(t))
-        except Exception:
-            continue
-
     return RegistrationCredential(
         id=b64decode(payload.get("id") or payload.get("rawId")),
         raw_id=b64decode(payload.get("rawId") or payload.get("id")),
@@ -121,21 +113,11 @@ def build_registration_credential(payload: dict) -> RegistrationCredential:
             attestation_object=b64decode(payload["response"]["attestationObject"]),
             client_data_json=b64decode(payload["response"]["clientDataJSON"]),
         ),
-        authenticator_attachment=payload.get("authenticatorAttachment"),
-        transports=transports or None,
         type=payload.get("type") or "public-key",
     )
 
 
 def build_authentication_credential(payload: dict) -> AuthenticationCredential:
-    transports_raw = payload.get("transports") or []
-    transports = []
-    for t in transports_raw:
-        try:
-            transports.append(AuthenticatorTransport(t))
-        except Exception:
-            continue
-
     response = payload["response"]
     return AuthenticationCredential(
         id=b64decode(payload.get("id") or payload.get("rawId")),
@@ -146,8 +128,6 @@ def build_authentication_credential(payload: dict) -> AuthenticationCredential:
             signature=b64decode(response["signature"]),
             user_handle=b64decode(response["userHandle"]) if response.get("userHandle") else None,
         ),
-        authenticator_attachment=payload.get("authenticatorAttachment"),
-        transports=transports or None,
         type=payload.get("type") or "public-key",
     )
 
