@@ -122,7 +122,6 @@ def build_registration_credential(payload: dict) -> RegistrationCredential:
             client_data_json=b64decode(payload["response"]["clientDataJSON"]),
         ),
         authenticator_attachment=payload.get("authenticatorAttachment"),
-        client_extension_results=payload.get("clientExtensionResults") or {},
         transports=transports or None,
         type=payload.get("type") or "public-key",
     )
@@ -148,7 +147,6 @@ def build_authentication_credential(payload: dict) -> AuthenticationCredential:
             user_handle=b64decode(response["userHandle"]) if response.get("userHandle") else None,
         ),
         authenticator_attachment=payload.get("authenticatorAttachment"),
-        client_extension_results=payload.get("clientExtensionResults") or {},
         transports=transports or None,
         type=payload.get("type") or "public-key",
     )
